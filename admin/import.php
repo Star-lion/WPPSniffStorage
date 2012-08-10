@@ -31,7 +31,9 @@ if ($_POST['submit'])
 				$n = count($sql) - 1;
 				for ($i = 0; $i < $n; $i++) {
 					$query = $sql[$i];
-					if (strtolower(substr(trim($query),0,6)) == 'insert')
+                    if (strtolower(substr(trim($query),0,strpos($query," "))) == '#')
+                        $query = substr($query,strpos($query,"\n\r"));
+					if (strtolower(substr(trim($query),0,strpos(trim($query)," "))) == 'insert')
 					{
 						$result = $mysqlCon->query($query);
 						if ($mysqlCon->error)
@@ -40,8 +42,9 @@ if ($_POST['submit'])
 							'</tt><br>failed. MySQL error: ' . $mysqlCon->error);
 							break;
 						}
-						
-					}
+					} else {
+                        echo ('<p>Query: <br><tt>' . $query . '</tt><br>failed. Can only use inserts. uses '.substr(trim($query),0,strpos($query," ")));
+                    }
 				}
 			}
 		}

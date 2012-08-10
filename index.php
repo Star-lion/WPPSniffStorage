@@ -87,79 +87,89 @@ function filterSelect(select)
 <? 
 if ($_POST['submit'])
 {
-    $sql = "SELECT Build,SniffName,ObjectType,Id,Data FROM SniffData";
-    $where = "";
+    $sql = "SELECT Build,SniffName,ObjectType,Id,Data,name from (";
+    $tmpsql = "SELECT a.Build,a.SniffName,a.ObjectType,a.Id,a.Data,b.name as name FROM SniffData as a LEFT OUTER JOIN objectnames as b on a.id = b.id and a.objecttype = b.objecttype";
+    $wherearr = array();
     $likes = $_POST['likes'];
     $wheres = array();
     for ($i = 0; $i < $_POST['searches'];$i++)
     {
         $type = $_POST['entryType'.$i];
         $value = $_POST['entry'.$i];
-        if (!$value || $type == 'None')
+        if (empty($value) || $type == 'None')
             continue;
+        if ($type == 'Opcode Number') $type = 'Opcode';
+        if (!$wheres[$type]) $wheres[$type] = array();
         if ($type == 'Opcode Name')
         {
-            if ($_POST['likesentries'.$i])
+            if (!empty($_POST['likes'.$i]))
+            {
                 if (!in_array(array( 'Like' => true, 'opcode' => '%'.$value.'%'),$wheres[$type]))
                     array_push($wheres[$type], array('opcode' => '%'.$value.'%',  'Like' => true));
+            }
             else
+            {
                 if (!in_array(array( 'Like' => false, 'opcode' => $value),$wheres[$type]))
                     array_push($wheres[$type], array('opcode' => $value,  'Like' => false));
+            }
         } else
         {
-            if ($type == 'Opcode Number') $type = 'Opcode';
-            if (empty($wheres[$type])) $wheres[$type] = array();
             if (in_array($value, $wheres[$type])) continue;
             array_push($wheres[$type],$value);
         }
     }
-    
-    print_r($wheres);
-    
     foreach ($wheres as $key => $value)
     {
-        foreach ($value as $valKey => $valValue)
+        $where = '';
+        $type = $key;
+        if ($type == 'Opcode Name' || $type == 'Opcode Number') $type = 'Opcode';
+        for ($i = 0; $i < count($value);$i++)
         {
+            $valValue = $value[$i];
             if ($key == 'Opcode Name')
-                $where .= 
+            {
+                if ($where) $where .= ' OR ';
+                if ($valValue['Like']) $where .= "data LIKE '".$mysqlCon->escape_string($valValue['opcode'])."'";
+                else $where .= "data = '".$valValue['opcode']."'";
+            }
+            else {
+                if ($where) $where .= ' OR ';
+                if (is_numeric($valValue)) $where .= ' a.Id = '.$valValue;
+                else
+                    $where .= " b.name LIKE '%".$mysqlCon->escape_string($valValue)."%'";
+            } 
         }
+        $where = "a.ObjectType = '".$type."' AND (".$where.")";
+        array_push($wherearr,$where);
     }
-    die();
-    if ($_POST['opcodeName'])
-    {
-        $where .= "((ObjectType = 'Opcode' AND data";
-        if ($likes)
-            $where .= " like '%".$mysqlCon->escape_string($_POST['opcodeName'])."%')";
-        else 
-            $where .= " = '".$mysqlCon->escape_string($_POST['opcodeName'])."')";
-    }
-    
-    if ($_POST['opcodeNum'])
-    {
-        if ($where)
+    if (!empty($wherearr)){
+        for ($i = 0; $i < count($wherearr); $i++)
         {
-            $where .= " OR ";
-            $where .= "(ObjectType = 'Opcode' AND id = '".$mysqlCon->escape_string($_POST['opcodeNum'])."'))";
-        } else
-            $where .= "(ObjectType = 'Opcode' AND id = '".$mysqlCon->escape_string($_POST['opcodeNum'])."')";
-    } else
-        $where .= ')';
-    
-    if ($_POST['entryType'] != 'None' && $_POST['entry'])
-    {
-        if ($where)
-            $where .= " AND ";
-        $where .= "(ObjectType = '".$_POST['entryType']."' AND id = '".$mysqlCon->escape_string($_POST['entry'])."')";
+            if ($i) $sql.=' UNION ALL ';
+            $sql .= $tmpsql." WHERE ".$wherearr[$i];
+            if ($_POST['builds'])
+            {
+                $where .= ' AND build in ('.$_POST['builds'].')';
+            }
+        }
+        $sql .= ') as SniffsData GROUP BY SniffName, Id, Data, ObjectType ORDER BY SniffName, ObjectType ASC';
+        echo '<pre>';
+        if ($result = $mysqlCon->query($sql))
+        {
+            if ($result->num_rows)
+            {
+                while ($row = $result->fetch_array(MYSQLI_ASSOC))
+                    print_r($row);
+            } else {
+                echo('No Results Found');
+            }
+        } else {
+            echo('No Results Found');
+        }
+        echo '</pre></br><br/>'.$sql;
+    } else {
+        echo "Nothing to Search For";
     }
-    
-    if ($_POST['builds'])
-    {
-        if ($where)
-            $where .= " AND ";
-        $where .= 'build in ('.$_POST['builds'].')';
-    }
-    if ($where) $sql .= " WHERE ";
-    echo $sql.$where;
 }
 include 'includes/footer.php';
-?>
+?>  
