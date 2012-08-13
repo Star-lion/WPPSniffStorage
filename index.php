@@ -10,6 +10,7 @@ if ($result = $mysqlCon->query($sql))
         if (in_array($myrow->Build,explode(",",$_POST["builds"]))) $builds .= ' checked';
         $builds .= '> &nbsp; '.$buildVersions[$myrow->Build].'</li>';
     }
+$searchcount = $_POST['searches'] ? $_POST['searches'] : 1;
 ?>
 <script src="includes/jquery.js"></script>
 <script>
@@ -55,25 +56,27 @@ function filterSelect(select)
 <form name="search" method="post">
     <fieldset>
         <legend>Sniff Search</legend>
-        <input type="hidden" name="searches" value="1" id="searches" />
+        <input type="hidden" name="searches" value="<?php echo $searchcount ?>" id="searches" />
         <div id="entryContainer">
             <p style="float:right;"><a href="#" style="font-size:15px;" onclick="javascript:BuildClone(); return false;">Add New Search</a> | <a href="#" style="font-size:15px;" onclick="javascript:RemoveClone(); return false;">Remove Last Search</a></p>
-            <div id="entries0" style="clear:left;">
-                <label for="entryType0">Entry Type: </label>
-                <select name="entryType0" onchange="filterSelect(this)">
+            <?php for ($l = 0; $l < $searchcount; $l++) ?>
+            <div id="entries<?php echo $l ?>" style="clear:left;">
+                <label for="entryType<?php echo $l ?>">Entry Type: </label>
+                <select name="entryType<?php echo $l ?>" onchange="filterSelect(this)">
                 <?
                     for ($i = 0; $i < count($types); $i++)
                     {
                         echo '<option value="'.$types[$i].'"';
-                        if ($_POST['entryType'] == $types[$i])
+                        if ($_POST['entryType'.$l] == $types[$i])
                             echo ' selected';
                         echo '>'.$types[$i].'</option>';
                     }
                 ?>
                 </select>
-                <label for="entry0">Entry: </label><input type="text" name="entry0" class="searchInput" />
-                <p style="display:none;clear:both;" id="likesentries0"><input type="checkbox" name="likes0" value="1"> Use like instead of equals for opcode name.</p>
+                <label for="entry<?php echo $l ?>">Entry: </label><input type="text" name="entry<?php echo $l ?>" class="searchInput" value="<? echo $_POST['entry'.$l] ?>"/>
+                <p style="display:none;clear:both;" id="likesentries<?php echo $l ?>"><input type="checkbox" name="likes<?php echo $l ?>" value="1" <? if ($_POST['likes'.$l]) echo 'checked' ?>> Use like instead of equals for opcode name.</p>
             </div>
+            <? } ?>
         </div>
         <fieldset class="innerfieldset">
         <legend> Client Version</legend>
@@ -84,6 +87,7 @@ function filterSelect(select)
         <input type="submit" name="submit" class="submit" value="Submit" />
     </fieldset>
 </form>
+<br />
 <? 
 if ($_POST['submit'])
 {
